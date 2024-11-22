@@ -1,124 +1,67 @@
+import requests
 import os
-import tkinter as tk
-from tkinter import filedialog
 import PyPDF2
 import re
-import json
+from requests.auth import HTTPBasicAuth
 
-# Function to convert PDF to text and append to vault.txt
-def convert_pdf_to_text():
-    file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
-    if file_path:
-        with open(file_path, 'rb') as pdf_file:
+# IMPORT DU FICHIER ENV DEPUIS LE CLOUD PUBLIC
+
+def download_pdf_from_url(url, save_path):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        with open(save_path, 'wb') as file:
+            file.write(response.content)
+        print(f"Fichier téléchargé avec succès: {save_path}")
+    except requests.exceptions.RequestException as e:
+        print(f"Erreur lors du téléchargement du fichier: {e}")
+
+def extract_text_from_pdf(pdf_path):
+    text = ""
+    try:
+        with open(pdf_path, 'rb') as pdf_file:
             pdf_reader = PyPDF2.PdfReader(pdf_file)
             num_pages = len(pdf_reader.pages)
-            text = ''
             for page_num in range(num_pages):
                 page = pdf_reader.pages[page_num]
                 if page.extract_text():
                     text += page.extract_text() + " "
-            
-            # Normalize whitespace and clean up text
-            text = re.sub(r'\s+', ' ', text).strip()
-            
-            # Split text into chunks by sentences, respecting a maximum chunk size
-            sentences = re.split(r'(?<=[.!?]) +', text)  # split on spaces following sentence-ending punctuation
-            chunks = []
-            current_chunk = ""
-            for sentence in sentences:
-                # Check if the current sentence plus the current chunk exceeds the limit
-                if len(current_chunk) + len(sentence) + 1 < 1000:  # +1 for the space
-                    current_chunk += (sentence + " ").strip()
-                else:
-                    # When the chunk exceeds 1000 characters, store it and start a new one
-                    chunks.append(current_chunk)
-                    current_chunk = sentence + " "
-            if current_chunk:  # Don't forget the last chunk!
+    except Exception as e:
+        print(f"Erreur lors de l'extraction du texte du fichier PDF {pdf_path}: {e}")
+    return text
+
+base_url = "https://madlab.mpublicite.fr/clients/display/"
+
+os.makedirs("pdf", exist_ok=True)
+
+pdf_urls = [
+    base_url + "weatherpdf.pdf",
+]
+
+for pdf_url in pdf_urls:
+    pdf_name = pdf_url.split('/')[-1]
+    local_pdf_path = os.path.join("pdf", pdf_name)
+
+    download_pdf_from_url(pdf_url, local_pdf_path)
+
+    pdf_text = extract_text_from_pdf(local_pdf_path)
+
+    if pdf_text:
+        pdf_text = re.sub(r'\s+', ' ', pdf_text).strip()
+        sentences = re.split(r'(?<=[.!?]) +', pdf_text)
+        chunks = []
+        current_chunk = ""
+        for sentence in sentences:
+            if len(current_chunk) + len(sentence) + 1 < 1000:
+                current_chunk += (sentence + " ").strip()
+            else:
                 chunks.append(current_chunk)
-            with open("vault.txt", "a", encoding="utf-8") as vault_file:
-                for chunk in chunks:
-                    # Write each chunk to its own line
-                    vault_file.write(chunk.strip() + "\n")  # Two newlines to separate chunks
-            print(f"PDF content appended to vault.txt with each chunk on a separate line.")
+                current_chunk = sentence + " "
+        if current_chunk:
+            chunks.append(current_chunk)
 
-# Function to upload a text file and append to vault.txt
-def upload_txtfile():
-    file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
-    if file_path:
-        with open(file_path, 'r', encoding="utf-8") as txt_file:
-            text = txt_file.read()
-            
-            # Normalize whitespace and clean up text
-            text = re.sub(r'\s+', ' ', text).strip()
-            
-            # Split text into chunks by sentences, respecting a maximum chunk size
-            sentences = re.split(r'(?<=[.!?]) +', text)  # split on spaces following sentence-ending punctuation
-            chunks = []
-            current_chunk = ""
-            for sentence in sentences:
-                # Check if the current sentence plus the current chunk exceeds the limit
-                if len(current_chunk) + len(sentence) + 1 < 1000:  # +1 for the space
-                    current_chunk += (sentence + " ").strip()
-                else:
-                    # When the chunk exceeds 1000 characters, store it and start a new one
-                    chunks.append(current_chunk)
-                    current_chunk = sentence + " "
-            if current_chunk:  # Don't forget the last chunk!
-                chunks.append(current_chunk)
-            with open("vault.txt", "a", encoding="utf-8") as vault_file:
-                for chunk in chunks:
-                    # Write each chunk to its own line
-                    vault_file.write(chunk.strip() + "\n")  # Two newlines to separate chunks
-            print(f"Text file content appended to vault.txt with each chunk on a separate line.")
-
-# Function to upload a JSON file and append to vault.txt
-def upload_jsonfile():
-    file_path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
-    if file_path:
-        with open(file_path, 'r', encoding="utf-8") as json_file:
-            data = json.load(json_file)
-            
-            # Flatten the JSON data into a single string
-            text = json.dumps(data, ensure_ascii=False)
-            
-            # Normalize whitespace and clean up text
-            text = re.sub(r'\s+', ' ', text).strip()
-            
-            # Split text into chunks by sentences, respecting a maximum chunk size
-            sentences = re.split(r'(?<=[.!?]) +', text)  # split on spaces following sentence-ending punctuation
-            chunks = []
-            current_chunk = ""
-            for sentence in sentences:
-                # Check if the current sentence plus the current chunk exceeds the limit
-                if len(current_chunk) + len(sentence) + 1 < 1000:  # +1 for the space
-                    current_chunk += (sentence + " ").strip()
-                else:
-                    # When the chunk exceeds 1000 characters, store it and start a new one
-                    chunks.append(current_chunk)
-                    current_chunk = sentence + " "
-            if current_chunk:  # Don't forget the last chunk!
-                chunks.append(current_chunk)
-            with open("vault.txt", "a", encoding="utf-8") as vault_file:
-                for chunk in chunks:
-                    # Write each chunk to its own line
-                    vault_file.write(chunk.strip() + "\n")  # Two newlines to separate chunks
-            print(f"JSON file content appended to vault.txt with each chunk on a separate line.")
-
-# Create the main window
-root = tk.Tk()
-root.title("Upload .pdf, .txt, or .json")
-
-# Create a button to open the file dialog for PDF
-pdf_button = tk.Button(root, text="Upload PDF", command=convert_pdf_to_text)
-pdf_button.pack(pady=10)
-
-# Create a button to open the file dialog for text file
-txt_button = tk.Button(root, text="Upload Text File", command=upload_txtfile)
-txt_button.pack(pady=10)
-
-# Create a button to open the file dialog for JSON file
-json_button = tk.Button(root, text="Upload JSON File", command=upload_jsonfile)
-json_button.pack(pady=10)
-
-# Run the main event loop
-root.mainloop()
+        # Tout le contenu du pdf est intégré dans le fichier vault.txt comme ceci
+        with open("vault.txt", "a", encoding="utf-8") as vault_file:
+            for chunk in chunks:
+                vault_file.write(chunk.strip() + "\n")
+        print(f"Contenu du fichier PDF ajouté à vault.txt: {pdf_name}")
