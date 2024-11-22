@@ -1,3 +1,5 @@
+# Lucas YALMAN - WEB3 Projet LLM & IA.
+
 - pip install -r requirements.txt (ça n'a marché de mon côté qu'en utilisant la version 3.11 de python)
 - intaller Ollama
 - ollama pull llama3
